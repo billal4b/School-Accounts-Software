@@ -1,0 +1,28 @@
+$(function () {
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
+    $(document).on('change', '#head_name', function () {
+
+        var headName = $(this).val();
+        if (headName != null || headName != '') {
+            $.ajax({
+                url: baseURL + 'AuthenticatedUser/ThreeInOne/GetAccountingSubHeadsByAccountingHeadId/' + headName,
+                type: 'GET',
+                success: function (response) {
+                    $('#subHeadLists').html(response);
+                }
+            });
+        }else{
+            $('#subHeadLists').html('');return false;
+        }
+        
+    });    
+    $(document).on('change', 'input[type=radio][name=payment_type]', function(){
+        
+        alert($(this).val());
+    });
+});
+

@@ -1,0 +1,152 @@
+<?php
+
+namespace App\Http\Controllers\AuthenticatedUser;
+
+use Illuminate\Http\Request;
+use App\Http\Requests;
+use App\Http\Controllers\Controller;
+use Auth;
+use DB;
+use Validator;
+use PDF;
+use App\SalarySheet;
+
+class SalarySheetController extends Controller {
+
+    public function __construct() {
+        date_default_timezone_set('Asia/Dhaka');
+
+        $this->data = array();
+        $this->data['menuId'] = 23;
+        $this->data['viewPath'] = 'AuthenticatedUser.SalarySheet.';
+
+        if ($this->_hasPrivilegeToAccessTheMenu($this->data['menuId'], Auth::user()->role_id) == 0) {
+            abort(404);
+        };
+
+        $this->data['jsArray'][] = 'SalarySheet.js';
+    }
+
+    private function _setBreadcrumbs($brdcrmb) {
+        foreach ($brdcrmb as $key => $value) {
+            $this->data['brdcrmb'][] = array(
+                array('title' => $key, 'url' => $value)
+            );
+        }
+    }
+
+    private function _hasPrivilegeToAccessTheMenu($menuId, $roleId) {
+
+        $hasPrivilegeToAccessTheMenu = DB::select('call has_privilege_to_access_the_menu(' . $menuId . ', ' . $roleId . ')');
+        return count($hasPrivilegeToAccessTheMenu) > 0 ? $hasPrivilegeToAccessTheMenu[0]->role_menu_id : 0;
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index() {
+
+        $breadcrumb = array(
+            'Salary Sheet' => route('salarySheet::index'),
+        );
+        $this->_setBreadcrumbs($breadcrumb);
+
+        $this->data['pageTitle'] = 'Salary Sheet';
+        $this->data['user_roles'] = DB::table('tbl_roles')->select('role_id', 'role_name')->where('is_active', '=', 1)->get();
+
+        return view($this->data['viewPath'] . 'index', array('data' => $this->data));
+    }
+
+    private function checkHaveSalaryRecordsExist($month, $role_id) {
+
+        //return DB::table('tbl_');
+    }
+
+    public function process(Request $request) {
+
+        //echo $request->session()->institute_branch_version_id;exit();
+        //echo '<pre>';print_r($request->month);echo '</pre>';
+        $month = $request->month;
+        $role_id = $request->user_role_id;
+        try {
+
+            $users = DB::table('employeeinfo')->select('EmpID')->where('RolesID', '=', $role_id)->where('institute_branch_version_id', '=', Auth::user()->institute_branch_version_id)->get();
+            //echo '<pre>';print_r($users);echo '</pre>';exit();
+
+            $exist_user = DB::table('tbl_salary_sheets')->select('user_id')->where('month', '=', $month)->where('institute_branch_version_id', '=', Auth::user()->institute_branch_version_id)->get();
+            $exist_user2 = array(0 => '0');
+            foreach ($exist_user as $eu) {
+
+                $exist_user2[] = $eu->user_id;
+            }
+            //echo '<pre>';print_r($exist_user2);echo '</pre>';exit();
+            $total_users = count($users);
+            if ($total_users > 0) {
+                foreach ($users as $u) {
+
+                    if (!in_array($u->EmpID, $exist_user2)) {
+                        
+                        $salary_sheet = new SalarySheet;
+                        $salary_sheet->user_id = $u->EmpID;
+                        $salary_sheet->month = $month;
+                        $salary_sheet->institute_branch_version_id = Auth::user()->institute_branch_version_id;
+                        $salary_sheet->create_time = date('Y-m-d h:i:s');
+                        $salary_sheet->create_logon_id = session('sessLogonId');
+                        $salary_sheet->create_user_id = Auth::user()->user_id;
+                        $salary_sheet->last_action = 'INSERT';
+                        $salary_sheet->save();
+                    }
+                }
+            }
+        } catch (\Exception $ex) {
+            echo $ex->getMessage();
+        }
+    }
+
+    public function view(Request $request) {
+
+        $month = $request->month;
+        $role_id = $request->user_role_id;
+        try {
+
+            $this->data['salary_sheets'] = DB::select('call salary_sheet_month_wise("' . $month . '", "' . $role_id . '", "' . Auth::user()->institute_branch_version_id . '")');
+
+            return view($this->data['viewPath'] . 'view', array('data' => $this->data));
+
+            //echo '<pre>';print_r($users);echo '</pre>';
+        } catch (\Exception $ex) {
+            echo $ex->getMessage();
+        }
+    }
+
+    public function edit($id) {
+
+        $this->data['salary_sheet_details'] = SalarySheet::findOrFail($id);
+
+        $breadcrumb = array(
+            'Salary Sheet' => route('salarySheet::index'),
+            'Edit' => route('salarySheet::edit', array('salary_sheet_id' => $id)),
+        );
+        $this->_setBreadcrumbs($breadcrumb);
+
+        $this->data['pageTitle'] = 'Salary Sheet';
+
+        return view($this->data['viewPath'] . 'edit', array('data' => $this->data));
+    }
+
+    public function update(Request $request, $id) {
+
+        //echo '<pre>';print_r($request->all());echo '</pre>';exit();
+        $salary_sheet = SalarySheet::find($id);
+        $salary_sheet->tax = $request->input('tax');
+        $salary_sheet->absent_in_month = $request->input('absent_in_month');
+        $salary_sheet->cpf_loan_adj = $request->input('cpf_loan_adj');
+        $salary_sheet->remarks = $request->input('remarks');
+        $salary_sheet->save();
+
+        return redirect()->route('salarySheet::index');
+    }
+
+}

@@ -1,0 +1,41 @@
+$(function () {
+
+
+    $(document).on('click', '#processSalarySheet', function () {
+
+//        alert('hi');return false;
+        var month = $('#month').val();
+        var userRoleId = $('#user_role').val();
+        if (month && userRoleId) {
+
+            $.ajax({
+                url: baseURL + 'AuthenticatedUser/SalarySheet/Process/' + month + '/' + userRoleId,
+                type: 'GET',
+                success: function (response) {
+                    $('#salarySheetInfo').html(response);
+                }
+            });
+        }
+
+    });
+    
+    $(document).on('click', '#viewSalarySheet', function () {
+
+//        alert('hi');return false;
+        var month = $('#month').val();
+        var userRoleId = $('#user_role').val();
+        if (month && userRoleId) {
+
+            $.ajax({
+                url: baseURL + 'AuthenticatedUser/SalarySheet/View/' + month + '/' + userRoleId,
+                type: 'GET',
+                success: function (response) {
+                    $('#salarySheetInfo').html(response);
+                }
+            });
+        }
+
+    });
+
+
+});	

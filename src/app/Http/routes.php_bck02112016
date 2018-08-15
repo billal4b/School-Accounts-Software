@@ -1,0 +1,301 @@
+<?php
+
+/*
+  |--------------------------------------------------------------------------
+  | Application Routes
+  |--------------------------------------------------------------------------
+  |
+  | Here is where you can register all of the routes for an application.
+  | It's a breeze. Simply tell Laravel the URIs it should respond to
+  | and give it the controller to call when that URI is requested.
+  |
+ */
+
+/*
+ * 
+  Route::get('/', function () {
+  return view('welcome');
+  });
+ * 
+ */
+
+Route::filter('guest', function() {
+    if (Auth::check()) {
+        return redirect('/AuthenticatedUser/Home/OnlineInformation');
+    }
+});
+
+Route::get('auth/login', function() {
+    return redirect('Authentication/SignIn');
+});
+
+Route::get('/', function() {
+    return redirect('Authentication/SignIn');
+});
+
+Route::get('Authentication/SignIn', array(
+    'as' => 'signInForm',
+    'uses' => 'AuthenticationController@signIn'
+))->before('guest');
+Route::post('Authentication/SignIn', array(
+    'as' => 'signInAction',
+    'uses' => 'AuthenticationController@signInAction'
+))->before('guest');
+
+Route::group(array(
+    'middleware' => 'auth',
+    'prefix' => 'AuthenticatedUser',
+    'namespace' => 'AuthenticatedUser'
+        ), function() {
+
+
+    Route::get('ThreeInOne/{pageType}', array(// available page types are income, expense, fixed assets
+        'as' => '3in1',
+        'uses' => 'ThreeInOneController@index'
+    ))->where('pageType', '[A-Za-z]+');
+    Route::get('ThreeInOne/GetAccountingSubHeadsByAccountingHeadId/{headId}', array(// available page types are income, expense, fixed assets
+        'uses' => 'ThreeInOneController@getAccountingSubHeadsByAccountingHeadId'
+    ))->where('headId', '[0-9]+');
+
+    Route::group(array(
+        'prefix' => 'Home',
+        'as' => 'home::',
+            ), function() {
+
+        Route::get('OnlineInformation', array(
+            'as' => 'onlineInfo',
+            'uses' => 'HomeController@onlineInformation'
+        ));
+        
+        
+        
+        
+        
+        
+        
+        
+        Route::get('UpdateOwnProfile', array(
+            'as' => 'updateOwnProfile',
+            'uses' => 'HomeController@edit'
+        ));
+		Route::post('UpdateOwnProfile', array(
+            'as' => 'updateOwnProfileAction',
+            'uses' => 'HomeController@update'
+        ));
+		
+		Route::post('UpdateOwnProfilePic', array(
+            'as' => 'updateProfile',
+            'uses' => 'HomeController@update_image'
+        ));
+		
+		Route::get('UpdateProfilePassword', array(
+            'as' => 'updateProfilePassword',
+            'uses' => 'HomeController@edit_password'
+        ));		
+		Route::post('UpdateProfilePassword', array(
+            'as' => 'updatePasswordAction',
+            'uses' => 'HomeController@update_password'
+        ));
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+
+        Route::get('SignOut', array(
+            'as' => 'signOut',
+            'uses' => 'HomeController@signOut'
+        ));
+    });
+
+    Route::group(array(
+        'prefix' => 'GenerateStudentPaymentSlip',
+        'as' => 'generateStudentPaymentSlip::',
+            ), function() {
+
+        Route::get('/', array(
+            'as' => 'index',
+            'uses' => 'GenerateStudentPaymentSlipController@index'
+        ));
+        Route::get('{generateType}/{studentId}/{generateMonth}/{generateClass}/{generateSection}/{generateGroup}', array(
+            'as' => 'viewOrPrint',
+            'uses' => 'GenerateStudentPaymentSlipController@viewOrPrint'
+        ))->where(array(
+            'generateType' => '[A-Za-z]+',
+            'studentId' => '[0-9A-Za-z]+',
+            'generateMonth' => '[0-9]+',
+            'generateClass' => '[0-9]+',
+            'generateSection' => '[0-9]+',
+            'generateGroup' => '[0-9]+',
+        ));
+        
+        Route::post('Pay', array(
+            'as' => 'pay',
+            'uses' => 'GenerateStudentPaymentSlipController@pay'
+        ));
+    });
+    
+    Route::group(array(
+        'prefix' => 'BankEmployee',
+        'as' => 'bankEmp::',
+        'namespace' => 'BankEmployee'
+    ), function(){
+        
+        Route::group(array(
+            'prefix' => 'StudentPayment',
+            'as' => 'studentPayment::'
+        ), function(){
+            
+            Route::get('/', array(
+                'as' => 'index',
+                'uses' => 'StudentPaymentController@index'
+            ));
+            
+            Route::get('Slip/{generateType}/{studentId}/{generateMonth}', array(
+                'as' => 'viewOrPrint',
+                'uses' => 'StudentPaymentController@slip'
+            ));
+        });
+    });
+
+
+
+    Route::group(array(
+        'prefix' => 'AppSetup',
+            //'as' => 'resource::',
+            ), function() {
+
+        Route::get('/', array(
+            'as' => 'appSetup',
+            'uses' => 'AppSetupController@index'
+        ));
+
+        Route::group(array(
+            'namespace' => 'AppSetup'
+                ), function() {
+           
+            
+            Route::resource('EmployeeGrade', 'EmployeeGradeController', array(
+                'names' => array(
+                    'create' => 'empGrade.create',
+                    'edit' => 'empGrade.edit',
+                    'index' => 'empGrade.index',
+                    'store' => 'empGrade.store',
+                    'update' => 'empGrade.update',
+                )
+            ));
+            Route::resource('EmployeeDesignation', 'EmployeeDesignationController', array(
+                'names' => array(
+                    'create' => 'empDesignation.create',
+                    'edit' => 'empDesignation.edit',
+                    'index' => 'empDesignation.index',
+                    'store' => 'empDesignation.store',
+                    'update' => 'empDesignation.update',
+                )
+            ));
+            Route::resource('Bank', 'BankController', array(
+                'names' => array(
+                    'create' => 'bank.create',
+                    'edit' => 'bank.edit',
+                    'index' => 'bank.index',
+                    'store' => 'bank.store',
+                    'update' => 'bank.update',
+                )
+            ));
+            Route::resource('BankBranch', 'BankBranchController', array(
+                'names' => array(
+                    'create' => 'branch.create',
+                    'edit' => 'branch.edit',
+                    'index' => 'branch.index',
+                    'store' => 'branch.store',
+                    'update' => 'branch.update',
+                )
+            ));
+            Route::get('BankAccount/GetBranchNameByBankId/{bank_id}', array('uses' => 'BankAccountController@getBranchNameByBankId'))->where('bank_id', '[0-9]+');
+            Route::resource('BankAccount', 'BankAccountController', array(
+                'names' => array(
+                    'create' => 'bankAccount.create',
+                    'edit' => 'bankAccount.edit',
+                    'index' => 'bankAccount.index',
+                    'store' => 'bankAccount.store',
+                    'update' => 'bankAccount.update',
+                )
+            ));
+            Route::resource('ThirdParty', 'ThirdPartyController', array(
+                'names' => array(
+                    'create' => 'thirdParty.create',
+                    'edit' => 'thirdParty.edit',
+                    'index' => 'thirdParty.index',
+                    'store' => 'thirdParty.store',
+                    'update' => 'thirdParty.update',
+                )
+            ));
+            Route::resource('AccountingCategory', 'AccountingCategoryController', array(
+                'names' => array(
+                    'create' => 'accountCategory.create',
+                    'edit' => 'accountCategory.edit',
+                    'index' => 'accountCategory.index',
+                    'store' => 'accountCategory.store',
+                    'update' => 'accountCategory.update',
+                )
+            ));
+            Route::resource('AccountingHead', 'AccountingHeadController', array(
+                'names' => array(
+                    'create' => 'head.create',
+                    'edit' => 'head.edit',
+                    'index' => 'head.index',
+                    'store' => 'head.store',
+                    'update' => 'head.update',
+                )
+            ));
+            Route::get('AccountingSubHead/GetHeadNameByAccountingCategoryId/{head_id}', array('uses' => 'AccountingSubHeadController@getHeadNameByAccountingCategoryId'))->where('head_id', '[0-9]+');
+            Route::resource('AccountingSubHead', 'AccountingSubHeadController', array(
+                'names' => array(
+                    'create' => 'subHead.create',
+                    'edit' => 'subHead.edit',
+                    'index' => 'subHead.index',
+                    'store' => 'subHead.store',
+                    'update' => 'subHead.update',
+                )
+            ));
+            Route::resource('Salary', 'SalaryController', array(
+                'names' => array(
+                    'create' => 'salary.create',
+                    'edit' => 'salary.edit',
+                    'index' => 'salary.index',
+                    'store' => 'salary.store',
+                    'update' => 'salary.update',
+                )
+            ));
+            Route::resource('StudentPayment', 'StudentPaymentController', array(
+                'names' => array(
+                    'create' => 'studentPayment.create',
+                    'edit' => 'studentPayment.edit',
+                    'index' => 'studentPayment.index',
+                    'store' => 'studentPayment.store',
+                    'update' => 'studentPayment.update',
+                )
+            ));
+            
+            Route::resource('Student', 'StudentController', array(
+                'names' => array(
+                    'create' => 'student.create',
+                    'edit' => 'student.edit',
+                    'index' => 'student.index',
+                    'store' => 'student.store',
+                    'update' => 'student.update',
+                )
+            ));
+        });
+    });
+});
+
+

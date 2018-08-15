@@ -1,0 +1,234 @@
+<?php
+
+namespace App\Http\Controllers\AuthenticatedUser;
+
+use Illuminate\Http\Request;
+use App\Http\Requests;
+use App\Http\Controllers\Controller;
+use Auth;
+use DB;
+use Validator;
+use PDF;
+use App\ReceivedStudentPayment;
+use App\ReceivedStudentPaymentSubHead;
+
+class GenerateStudentPaymentSlipController extends Controller {
+
+    public function __construct() {
+        date_default_timezone_set('Asia/Dhaka');
+
+        $this->data = array();
+        $this->data['menuId'] = 16;
+        $this->data['viewPath'] = 'AuthenticatedUser.GenerateStudentPaymentSlip.';
+
+        if ($this->_hasPrivilegeToAccessTheMenu($this->data['menuId'], Auth::user()->role_id) == 0) {
+            abort(404);
+        };
+
+        $this->data['jsArray'][] = 'GenerateStudentPaymentSlip.js';
+    }
+
+    private function _setBreadcrumbs($brdcrmb) {
+        foreach ($brdcrmb as $key => $value) {
+            $this->data['brdcrmb'][] = array(
+                array('title' => $key, 'url' => $value)
+            );
+        }
+    }
+
+    private function _hasPrivilegeToAccessTheMenu($menuId, $roleId) {
+
+        $hasPrivilegeToAccessTheMenu = DB::select('call has_privilege_to_access_the_menu(' . $menuId . ', ' . $roleId . ')');
+        return count($hasPrivilegeToAccessTheMenu) > 0 ? $hasPrivilegeToAccessTheMenu[0]->role_menu_id : 0;
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index() {
+
+        $breadcrumb = array(
+            'Generate Student Payment Slip' => route('generateStudentPaymentSlip::index'),
+        );
+        $this->_setBreadcrumbs($breadcrumb);
+
+        $this->data['pageTitle'] = 'Generate Student Payment Slip';
+        //$this->data['studentPaymentList'] = StudentPayment::get();
+//        $this->data['studentClasses']  = DB::select('call get_student_classes(1)');
+//        $this->data['studentGroups']   = DB::select('call get_student_groups(1)');
+//        $this->data['studentSections'] = DB::select('call get_student_sections(1)');
+
+        return view($this->data['viewPath'] . 'index', array('data' => $this->data));
+    }
+
+    public function viewOrPrint(Request $request) {
+
+        if ($request->ajax()) {
+
+            try {
+
+                $generateType = $request->generateType;
+
+                if (Auth::user()->role_id == 8) {
+                    $receiptNo = $request->receiptNo;
+                    $studentId = 0;
+                    $generateMonth = 0;
+                } else {
+                    $receiptNo = 0;
+                    $studentId = $request->studentId;
+                    $generateMonth = $request->generateMonth;
+                }
+//
+//                echo $receiptNo . '---';
+//                exit();
+
+                if ($studentId != 0) {
+
+                    /* $this->data['studentDetails'] = DB::table('studentinfo AS si')
+                      ->select('si.id', 'si.FullName', 'si.RollNo', 'ci.id AS class_id', 'ci.ClassName', 'sci.section_id', 'sci.SectionName', 'sg.id AS group_id', 'sg.GroupName')
+                      ->join('classinfo AS ci', 'ci.ClassID', '=', 'si.ClassID')
+                      ->join('sectioninfo AS sci', 'sci.SectionID', '=', 'si.SectionID')
+                      ->join('stugrp AS sg', 'sg.GroupName', '=', 'si.StuGroup')
+                      ->where('si.StudentID', '=', $studentId)
+                      ->first(); */
+                    $this->data['studentDetails'] = DB::table('tbl_students AS si')
+                            ->select('si.section_id', 'si.institute_branch_version_id', 'si.student_id', 'si.system_generated_student_id', 'si.student_name', 'si.roll_no', 'ci.id AS class_id', 'ci.ClassName'/* , 'sci.section_id', 'sci.SectionName' */, 'sg.id AS group_id', 'sg.GroupName', 'si.stu_group')
+                            ->join('classinfo AS ci', 'ci.ClassID', '=', 'si.class_id')
+                            /* ->join('sectioninfo AS sci', 'sci.SectionID', '=', 'si.SectionID') */
+                            ->join('stugrp AS sg', 'sg.id', '=', 'si.stu_group')
+                            ->where('si.system_generated_student_id', '=', $studentId)
+                            ->first();
+//                    echo '<pre>';
+//                    print_r($this->data['studentDetails']);
+//                    exit();
+                    if (empty($this->data['studentDetails'])) {
+                        echo '<h6 class="text-danger text-uppercase">No data found.</h6>';
+                        return;
+                    }
+                    //echo '<pre>';print_r($this->data['studentDetails']);echo '</pre>';exit();
+
+                    $generateClass = $this->data['studentDetails']->class_id;
+                    $generateGroup = $this->data['studentDetails']->stu_group;
+                    $generateInstituteBranchVersionId = $this->data['studentDetails']->institute_branch_version_id;
+
+                    $this->data['paymentMonth'] = $request->generateMonth;
+
+                    $this->data['checkIsReceivedByBank'] = DB::select('call checkIsReceivedByBank("' . $this->data['studentDetails']->student_id . '", "' . $this->data['studentDetails']->system_generated_student_id . '", "' . $generateClass . '", "' . $generateGroup . '",  "' . $generateMonth . '")');
+//                    echo '<pre>';
+//                    print_r($this->data['checkIsReceivedByBank']);
+//                    echo '</pre>'; exit();
+                    //if (empty($this->data['checkIsReceivedByBank'])) {
+
+                    $this->data['paymentDetails'] = DB::select('call generate_month_wise_student_payment_slip("' . $generateClass . '", "' . $generateInstituteBranchVersionId . '", "' . $generateGroup . '",  "' . $generateMonth . '")');
+
+//                    echo '<pre>';
+//                    print_r($this->data['paymentDetails']);
+//                    echo '</pre>';
+//                    exit();
+
+                    if (empty($this->data['paymentDetails'])) {
+                        echo '<h6 class="text-danger text-uppercase">No data found.</h6>';
+                        return;
+                    }
+                    //}
+                } else if ($receiptNo != 0) {
+
+                    $this->data['checkIsReceivedByBank'] = DB::select('call get_receipt_details_by_receipt_no("' . $receiptNo . '")');
+//                    echo '<pre>';
+//                    print_r($this->data['checkIsReceivedByBank']);
+//                    echo '</pre>';exit();
+                    if (empty($this->data['checkIsReceivedByBank'])) {
+                        echo '<h6 class="text-danger text-uppercase">No data found.</h6>';
+                        return;
+                    }
+                    $this->data['paymentDetails'] = DB::select('call generate_month_wise_student_payment_slip("' . $this->data['checkIsReceivedByBank'][0]->class_id . '", "' . $this->data['checkIsReceivedByBank'][0]->institute_branch_version_id . '", "' . $this->data['checkIsReceivedByBank'][0]->group_id . '",  "' . $this->data['checkIsReceivedByBank'][0]->generated_month . '")');
+//                    echo '<pre>';
+//                    print_r($this->data['paymentDetails']);
+//                    echo '</pre>';exit();
+                } else {
+                    echo '<h6 class="text-danger text-uppercase">No data found.</h6>';
+                    return;
+                }
+                return view($this->data['viewPath'] . 'viewOrPrint', array('data' => $this->data));
+            } catch (\Exception $ex) {
+                echo $ex->getMessage();
+            }
+        } else {
+            throw new Exception('Invalid request!');
+        }
+    }
+
+    public function pay(Request $request) {
+        if (Auth::user()->role_id == 9) {
+            if ($request->ajax()) {
+
+                $validator = Validator::make($request->all(), array(
+                            'student_id' => 'required|integer',
+                            'system_generated_student_id' => 'required|alpha_num',
+                            'generated_month' => 'required|integer',
+                            'class_id' => 'required|integer',
+                            'group_id' => 'required|integer',
+                            'received_amount' => 'required|regex:/^\d*(\.\d{2})?$/',
+                            'book_sl_no' => 'required|max:10',
+                ));
+
+                if ($validator->fails()) {
+                    return $validator->messages()->toJson();
+                }
+                /*
+                  $totalStudentPaymentId = count($request->student_payment_id);
+                  $totalStudentPaymentName = count($request->student_payment_name);
+                  $totalPaymentAmount = count($request->payment_amount);
+                  if ($totalStudentPaymentId > 0 && $totalStudentPaymentName > 0 && $totalPaymentAmount && $totalStudentPaymentId == $totalStudentPaymentName && $totalStudentPaymentId == $totalPaymentAmount && $totalStudentPaymentName == $totalPaymentAmount) {
+                 */
+                //echo session('instituteDetails')->branch_id;                exit();
+                $paymentDetailsArr = array(
+                    'student_id' => $request->student_id,
+                    'system_generated_student_id' => $request->system_generated_student_id,
+                    'generated_month' => $request->generated_month,
+                    'student_roll' => $request->student_roll,
+                    'class_id' => $request->class_id,
+                    'section_id' => $request->section_id,
+                    'group_id' => $request->group_id,
+                    'received_amount_by_bank' => $request->received_amount,
+                    'bank_user_id' => Auth::user()->user_id,
+                    'received_time' => date('Y-m-d H:i:s'),
+                    'is_active' => 1,
+                    'create_time' => date('Y-m-d H:i:s'),
+                    'create_logon_id' => session('sessLogonId'),
+                    'create_user_id' => Auth::user()->user_id,
+                    'last_action' => 'INSERT',
+                    'bank_id' => session('instituteDetails')->bank_id,
+                    'bank_branch_id' => session('instituteDetails')->branch_id,
+                    'book_sl_no' => $request->book_sl_no,
+                );
+                $receivedStudentPayment = ReceivedStudentPayment::create($paymentDetailsArr);
+                $receivedStudentPaymentId = $receivedStudentPayment->received_student_payment_id;
+                $_receiptNo = date("Ymd") . $receivedStudentPaymentId;
+                $receiptNoArr = array(
+                    'receipt_no' => $_receiptNo,
+                );
+                $receiptNo = ReceivedStudentPayment::where('received_student_payment_id', '=', $receivedStudentPaymentId)
+                        ->update($receiptNoArr);
+
+                // for ($i = 0; $i < $totalStudentPaymentId; $i++) {
+
+                $receivedStudentPaymentSubHead = new ReceivedStudentPaymentSubHead;
+                //$receivedStudentPaymentSubHead->student_payment_id = $request->student_payment_id[$i];
+                // $receivedStudentPaymentSubHead->student_payment_name = $request->student_payment_name[$i];
+                // $receivedStudentPaymentSubHead->payment_amount = $request->payment_amount[$i];
+                $receivedStudentPaymentSubHead->received_student_payment_id = $receivedStudentPaymentId;
+                $receivedStudentPaymentSubHead->save();
+                //   }
+                //}
+                //echo 'Receipt No. : <strong class="text-info">' . $_receiptNo . '</strong>';
+                //echo 'Receipt No. : <strong class="text-info">' . $receivedStudentPaymentId . '</strong>';
+                return redirect()->route('generateStudentPaymentSlip::viewOrPrint', array('generateType' => 'View', 'studentId' => $request->system_generated_student_id, 'generateMonth' => $request->generated_month, 'receiptNo' => 0));
+            }
+            //echo '<pre>';print_r($request->all());echo '</pre>';exit();
+        }
+    }
+
+}

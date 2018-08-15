@@ -1,0 +1,2 @@
+[21-Dec-2016 06:43:22 UTC] PHP Fatal error:  Class 'App\Http\Controllers\Controller' not found in /home/schooldbdingai/public_html/accounts/src/app/Http/Controllers/AuthenticatedUser/AppSetup/StudentController.php on line 14
+[21-Dec-2016 06:43:26 UTC] PHP Fatal error:  Class 'App\Http\Controllers\Controller' not found in /home/schooldbdingai/public_html/accounts/src/app/Http/Controllers/AuthenticatedUser/AppSetup/StudentController.php on line 14

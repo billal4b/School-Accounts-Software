@@ -1,0 +1,128 @@
+<?php
+
+namespace App\Http\Controllers\AuthenticatedUser;
+
+use Illuminate\Http\Request;
+use App\Http\Requests;
+use App\Http\Controllers\Controller;
+use Auth;
+use App\Student;
+use DB;
+use PDF;
+
+
+class StudentwisePaymentReportController  extends Controller {
+
+    public function __construct() {
+        date_default_timezone_set('Asia/Dhaka');
+
+         $this->data = array();
+		$this->data['menuId'] = 53;
+        $this->data['viewPath'] = 'AuthenticatedUser.StudentwisePaymentReport.';
+		
+	    $this->data['jsArray'][] = 'student_wise_Payment_Report.js';
+    }
+
+    private function _setBreadcrumbs($brdcrmb) {
+        foreach($brdcrmb as $key => $value){
+            $this->data['brdcrmb'][] = array(
+                array('title' => $key, 'url' => $value)
+            );
+        }
+    }
+	
+	public function index() {
+        
+           $breadcrumb = array(
+            'Students wise Payment Report' => route('studentwisePaymentReport.index'),
+        );
+        $this->_setBreadcrumbs($breadcrumb);
+		
+		$this->data['pageTitle'] = 'Students View';
+		
+		$this->data['secInstitutes'] = DB::select('call get_sec_institute_branch_version("' . session('instituteDetails')->institute_id . '")');
+		$this->data['classWise']   = DB::select('call get_student_classes(1)');	
+		$this->data['groupWise']   = DB::select('call get_student_groups(1)');	
+
+        return view($this->data['viewPath'] . 'index', array('data' => $this->data));
+    }
+    /********************view method***********************/
+
+    public function view(Request $request) {
+//echo '<pre>';print_r($request->all());echo '</pre>';exit();
+		
+        if($request->ajax()) {
+            try {
+                $this->data['pageTitle'] = 'Student wise Payment Report';
+                
+				if(empty($request->search_value)){
+					$search_value = 0;
+				}else{
+					$search_value = $request->search_value;
+				}
+				if(empty($request->branch_and_version)){
+					$branch_and_version = 0;
+				}else{
+					$branch_and_version = $request->branch_and_version;
+				}
+				if(empty($request->class_name)){
+					$class_name = 0;
+				}else{
+					$class_name = $request->class_name;
+				}
+				if(empty($request->section_name)){
+					$section_name = 0;
+				}else{
+					$section_name = $request->section_name;
+				}
+				if(empty($request->group_name)){
+					$group_name = 0;
+				}else{
+					$group_name = $request->group_name;
+				}  
+				
+				$this->data['StudentWisePayment'] = DB::select('call students_wise_payment_report("'.$search_value.'","'.$branch_and_version.'","'.$class_name.'","'.$section_name.'","'.$group_name.'")'); 			
+				
+                  echo '<pre>';
+                  		print_r($this->data['StudentWisePayment']);
+			      echo '</pre>'; exit();
+  			    
+				
+            } catch (\Exception $ex) {
+                echo $ex->getMessage();
+            }
+			
+            return view($this->data['viewPath'] . 'view', array('data' => $this->data));
+            		
+        } else {
+            throw new Exception('Invalid request!');
+        }
+    } 
+	
+	/******************** getBranchSection method ***********************/
+	
+	public function getBranchSection($BranchVersionID,$ClassID) {
+     
+        $vbid = explode('_', $BranchVersionID);
+        $Section = DB::table('tbl_sec_sections')
+		        -> join ('sectioninfo', 'sectioninfo.section_id' ,'=','tbl_sec_sections.section_id')
+                -> select('tbl_sec_sections.*', 'sectioninfo.SectionName')
+                -> where('institute_branch_version_id', '=', $vbid[0])
+                -> where('class_id', '=', $ClassID)
+                -> get();
+
+        echo '<option value="">----- Select -----</option>';
+        foreach ($Section as $sid) {
+            echo '<option value="' . $sid->section_id . '">' . $sid->SectionName . '</option>';
+        }
+
+    }
+	
+
+
+	
+	
+	
+	
+
+}
